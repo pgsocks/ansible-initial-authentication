@@ -1,0 +1,50 @@
+---
+- name: Enable ansible user authentication
+  hosts: all
+  gather_facts: no
+  remote_user: root
+  vars:
+    pub_key: "{{ pub_key | default(lookup('file', '~/.ssh/id_rsa.pub')) }}"
+  tags: init
+  tasks:
+    - name: Create ansible user
+      user:
+        name: ansible
+        uid: 10001
+    - name: Grant ansible password-less sudo
+      copy:
+        src: files/sudoers
+        dest: /etc/sudoers.d/ansible
+    - name: Authourize SSH key for ansible user
+      authorized_key:
+        user: ansible
+        key: "{{ pub_key }}"
+        state: present
+- name: Secure SSH
+  hosts: all
+  gather_facts: no
+  remote_user: ansible
+  become: yes
+  tags: secure
+  tasks:
+    - name: Remove all SSH keys from root user
+      file:
+        path: /root/.ssh/authorized_keys
+        state: absent
+    - name: Disable password authentication
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regex: "^(# *)?PasswordAuthentication"
+        line: PasswordAuthentication no
+      notify: Restart sshd
+    - name: Disable root login
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regex: "^(# *)?PermitRootLogin"
+        line: PermitRootLogin no
+      notify: Restart sshd
+  handlers:
+    - name: Restart sshd
+      service:
+        name: sshd
+        state: restarted
