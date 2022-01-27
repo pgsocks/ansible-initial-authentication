@@ -27,6 +27,10 @@
   become: yes
   tags: secure
   tasks:
+    - name: Lock root user password
+      user:
+        name: root
+        password: '!'
     - name: Remove all SSH keys from root user
       file:
         path: /root/.ssh/authorized_keys
